@@ -26,14 +26,16 @@ const client = new MongoClient(uri, {
 
 async function run() {
     try {
-        const collection = client.db('testDB').collection('test')
+        const userCollection = client.db('BDC').collection('Users')
+        // client.connect();
 
-        client.connect();
-
-        app.get('/shit', async (req, res) => {
-            const result = await collection.find().toArray()
+        app.post('/api/v1/add-user', async (req, res) => {
+            const user = req.body
+            user.status = 'active'
+            const result = await userCollection.insertOne(user)
             res.send(result)
         })
+
 
 
         // Send a ping to confirm a successful connection
