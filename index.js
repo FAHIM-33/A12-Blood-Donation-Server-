@@ -27,8 +27,20 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         const userCollection = client.db('BDC').collection('Users')
+        const requestCollection = client.db('BDC').collection('DonationRequests')
         // client.connect();
 
+        // user related APIs:
+        // get user status
+        app.get('/api/v1/isActive', async (req, res) => {
+            const email = req?.query?.email
+            const filter = { email: email }
+            const projection = { _id: 0, status: 1 }
+            const user = await userCollection.findOne(filter, { projection })
+            res.send({ status: user.status })
+        })
+
+        // add user to DB
         app.post('/api/v1/add-user', async (req, res) => {
             const user = req.body
             user.status = 'active'
@@ -36,6 +48,15 @@ async function run() {
             res.send(result)
         })
 
+
+
+        //Donation request related apis:
+        //Request a donation
+        app.post('/api/v1/create-donation-request', async (req, res) => {
+            const data = req.body
+            const result = await requestCollection.insertOne(data)
+            res.send(result)
+        })
 
 
         // Send a ping to confirm a successful connection
