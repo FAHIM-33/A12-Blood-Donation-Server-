@@ -12,7 +12,7 @@ app.use(express.json())
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASS}@cluster12.tzkl8fh.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
@@ -31,13 +31,18 @@ async function run() {
         // client.connect();
 
         // user related APIs:
-        // get user status
-        app.get('/api/v1/isActive', async (req, res) => {
+        // get user
+        app.get('/api/v1/user', async (req, res) => {
             const email = req?.query?.email
             const filter = { email: email }
-            const projection = { _id: 0, status: 1 }
-            const user = await userCollection.findOne(filter, { projection })
-            res.send({ status: user.status })
+            const user = await userCollection.findOne(filter)
+            res.send(user)
+        })
+
+        // get all users
+        app.get('/api/v1/all-users', async (req, res) => {
+            const result = await userCollection.find().toArray()
+            res.send(result)
         })
 
         // add user to DB
@@ -47,7 +52,31 @@ async function run() {
             const result = await userCollection.insertOne(user)
             res.send(result)
         })
+        app.post('/api/v1/update-user', async (req, res) => {
+            const updateUser = req.body
+            const filter = { email: req?.query?.email }
+            // console.log(updateUser);
+            const updatedDoc = {
+                $set: updateUser
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc)
+            res.send(result)
+        })
 
+        //update Role of user
+        app.get('/api/v1/update-user/:id', async (req, res) => {
+            const id = req.params.id
+            // const obj = req.query
+            // console.log(obj);
+            console.log(id);
+            const filter = { _id: new ObjectId(id) }
+            const roleField = {
+                $set: req.query
+            }
+            console.log(roleField);
+            const result = await userCollection.updateOne(filter, roleField)
+            res.send(result)
+        })
 
 
         //Donation request related apis:
