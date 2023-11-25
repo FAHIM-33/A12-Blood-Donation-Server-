@@ -80,12 +80,65 @@ async function run() {
 
 
         //Donation request related apis:
+
+        // Get all requests: (user specific)
+        app.get('/api/v1/my-donation-request', async (req, res) => {
+            const filter = req.query
+            const result = await requestCollection.find(filter).sort({ postTime: -1 }).toArray()
+            res.send(result)
+        })
+
+        app.get('/api/v1/request/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const result = await requestCollection.findOne(filter)
+            res.send(result)
+        })
+
         //Request a donation
         app.post('/api/v1/create-donation-request', async (req, res) => {
-            const data = req.body
+            let data = req.body
+            const time = new Date().getTime()
+            data.postTime = time
             const result = await requestCollection.insertOne(data)
             res.send(result)
         })
+
+        app.put('/api/v1/request-update/:id', async (req, res) => {
+            const id = req.params.id
+            const data = req.body
+            const filter = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: data
+            }
+            console.log(updateDoc);
+            const result = await requestCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+
+
+        // Delete a request
+        app.delete('/api/v1/delete-donation-request/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const result = await requestCollection.deleteOne(filter)
+            res.send(result)
+        })
+
+        // Update req status done or cancel:
+        app.patch('/api/v1/status-update/:id', async (req, res) => {
+            const id = req.params.id
+            const field = req.query
+            console.log(field);
+            const filter = { _id: new ObjectId(id) }
+            const updateField = {
+                $set: field
+            }
+            console.log(updateField);
+            const result = await requestCollection.updateOne(filter, updateField)
+            res.send(result)
+        })
+
 
 
         // Send a ping to confirm a successful connection
