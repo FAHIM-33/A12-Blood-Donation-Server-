@@ -52,6 +52,7 @@ async function run() {
             const result = await userCollection.insertOne(user)
             res.send(result)
         })
+
         app.post('/api/v1/update-user', async (req, res) => {
             const updateUser = req.body
             const filter = { email: req?.query?.email }
@@ -66,9 +67,6 @@ async function run() {
         //update Role of user
         app.get('/api/v1/update-user/:id', async (req, res) => {
             const id = req.params.id
-            // const obj = req.query
-            // console.log(obj);
-            console.log(id);
             const filter = { _id: new ObjectId(id) }
             const roleField = {
                 $set: req.query
@@ -83,7 +81,11 @@ async function run() {
 
         // Get all requests: (user specific)
         app.get('/api/v1/my-donation-request', async (req, res) => {
-            const filter = req.query
+            let filter = {}
+            if (req?.query?.email) {
+                filter = { email: req.query.email }
+            }
+            // const filter = req.query
             const result = await requestCollection.find(filter).sort({ postTime: -1 }).toArray()
             res.send(result)
         })
