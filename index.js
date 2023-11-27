@@ -87,6 +87,22 @@ async function run() {
             res.send(result);
         })
 
+        app.post('/api/v1/search-donors', async (req, res) => {
+            const { email, district, upazila, blood } = req.body
+            const filter = {
+                $and: [
+                    { email: { $regex: new RegExp(email, "i") } },
+                    { district: { $regex: new RegExp(district, 'i') } },
+                    { upazila: { $regex: new RegExp(upazila, 'i') } },
+                    { blood: { $regex: new RegExp(blood, 'i') } },
+                ]
+            }
+            console.log(filter);
+            const result = await userCollection.find(filter).toArray()
+            res.send(result)
+        })
+
+
 
         //Donation request related apis:
 
@@ -203,6 +219,26 @@ async function run() {
         // get all blogs:
         app.get('/api/v1/all-blog', async (req, res) => {
             const result = await blogCollection.find().toArray()
+            res.send(result)
+        })
+
+        // ID of blog
+        app.get('/api/v1/a-blog/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const result = await blogCollection.findOne(filter)
+            res.send(result)
+        })
+
+        // update a blog:
+        app.put('/api/v1/update-blog/:id', async (req, res) => {
+            const id = req.params.id
+            const data = req.body
+            const filter = { _id: new ObjectId(id) }
+            const updatedDoc = {
+                $set: data
+            }
+            const result = await blogCollection.updateOne(filter, updatedDoc)
             res.send(result)
         })
 
