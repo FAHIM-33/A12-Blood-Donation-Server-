@@ -190,12 +190,59 @@ async function run() {
 
 
         // // // /// // // Blogs related APIS:
-            app.post('/api/v1/add-blog', async (req, res) => {
-                const blog = req.body
-                console.log('The blog',blog);
-                const result = await blogCollection.insertOne(blog)
-                res.send(result)
-            })
+
+        // add a new blog
+        app.post('/api/v1/add-blog', async (req, res) => {
+            let blog = req.body
+            blog.blogStatus = 'pending'
+            console.log('The blog', blog);
+            const result = await blogCollection.insertOne(blog)
+            res.send(result)
+        })
+
+        // get all blogs:
+        app.get('/api/v1/all-blog', async (req, res) => {
+            const result = await blogCollection.find().toArray()
+            res.send(result)
+        })
+
+        // get all PUBLISHED blogs
+        app.get('/api/v1/all-published-blog', async (req, res) => {
+            const filter = { blogStatus: 'published' }
+            const result = await blogCollection.find(filter).toArray()
+            res.send(result)
+        })
+
+        // Publish/unpublish a blog:
+        app.patch('/api/v1/publish-blog/:id', async (req, res) => {
+            const id = req.params.id
+            const field = req.query
+            const filter = { _id: new ObjectId(id) }
+            const updatedDoc = {
+                $set: field
+            }
+            const result = await blogCollection.updateOne(filter, updatedDoc)
+            res.send(result)
+        })
+
+        // SEARCH PUBLISHED BLOGS:
+        app.get('/api/v1/search-blog', async (req, res) => {
+            const { title } = req.query
+            const filter = {
+                title: { $regex: new RegExp(title, 'i') },
+                blogStatus: 'published'
+            }
+            const result = await blogCollection.find(filter).toArray()
+            res.send(result)
+        })
+
+        // Delete blog:
+        app.delete('/api/v1/delete-blog/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            const result = await blogCollection.deleteOne(filter)
+            res.send(result)
+        })
 
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
