@@ -28,6 +28,7 @@ async function run() {
     try {
         const userCollection = client.db('BDC').collection('Users')
         const requestCollection = client.db('BDC').collection('DonationRequests')
+        const blogCollection = client.db('BDC').collection('Blogs')
         // client.connect();
 
         // user related APIs:
@@ -71,22 +72,49 @@ async function run() {
             const roleField = {
                 $set: req.query
             }
-            console.log(roleField);
+            // console.log(roleField);
             const result = await userCollection.updateOne(filter, roleField)
             res.send(result)
+        })
+
+        app.get('/api/v1/paginated-all-users', async (req, res) => {
+            const data = req.query
+            const { size, currentPage } = data
+            const result = await userCollection.find()
+                .skip(size * currentPage)
+                .limit(size * 1)
+                .toArray();
+            res.send(result);
         })
 
 
         //Donation request related apis:
 
-        // Get all requests: (user specific)
+        // Get all requests: or user specific
         app.get('/api/v1/my-donation-request', async (req, res) => {
             let filter = {}
             if (req?.query?.email) {
                 filter = { email: req.query.email }
             }
-            // const filter = req.query
             const result = await requestCollection.find(filter).sort({ postTime: -1 }).toArray()
+            res.send(result)
+        })
+
+        // PAGINATED all request:
+        app.get('/api/v1/paginated-all-req', async (req, res) => {
+            const data = req.query
+            const { size, currentPage } = data
+            const result = await requestCollection.find()
+                .skip(size * currentPage)
+                .limit(size * 1)
+                .toArray();
+            res.send(result);
+        })
+
+        // Get all peding reqs (public)
+        app.get('/api/v1/pending-donation-request', async (req, res) => {
+            const filter = { requestStatus: 'pending' }
+            const result = await requestCollection.find(filter).toArray()
             res.send(result)
         })
 
@@ -113,7 +141,6 @@ async function run() {
             const updateDoc = {
                 $set: data
             }
-            console.log(updateDoc);
             const result = await requestCollection.updateOne(filter, updateDoc)
             res.send(result)
         })
@@ -128,20 +155,47 @@ async function run() {
         })
 
         // Update req status done or cancel:
-        app.patch('/api/v1/status-update/:id', async (req, res) => {
+        app.put('/api/v1/status-update/:id', async (req, res) => {
             const id = req.params.id
-            const field = req.query
-            console.log(field);
+            const field = req.body
+            if (field.requestStatus === 'in progress' && Object.keys(field).length === 1) {
+                console.log("executed if block");
+                return res.status(401).send({ message: 'What are you doing???' })
+            }
             const filter = { _id: new ObjectId(id) }
             const updateField = {
                 $set: field
             }
-            console.log(updateField);
             const result = await requestCollection.updateOne(filter, updateField)
             res.send(result)
         })
 
+        // Get Document Counts 
+        app.get('/api/v1/all-stats', async (req, res) => {
+            const totalUser = await userCollection.estimatedDocumentCount()
+            const totalRequest = await requestCollection.estimatedDocumentCount()
+            const result = {
+                totalUser,
+                totalRequest,
+                totalFunding: 34
+            }
+            res.send(result)
+        })
 
+        // get Request  count:
+        app.get('/api/v1/all-req-count', async (req, res) => {
+            const totalRequest = await requestCollection.estimatedDocumentCount()
+            res.send({ count: totalRequest })
+        })
+
+
+        // // // /// // // Blogs related APIS:
+            app.post('/api/v1/add-blog', async (req, res) => {
+                const blog = req.body
+                console.log('The blog',blog);
+                const result = await blogCollection.insertOne(blog)
+                res.send(result)
+            })
 
         // Send a ping to confirm a successful connection
         // await client.db("admin").command({ ping: 1 });
