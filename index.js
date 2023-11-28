@@ -4,15 +4,37 @@ const port = process.env.PORT || 5000
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
 require('dotenv').config()
+const cookieParser = require('cookie-parser')
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+
 
 // middlewares
-app.use(cors())
 app.use(express.json())
+app.use(cors({
+    origin: [
+        // 'http://localhost:5173',
+        'https://assignment-12-dd761.web.app'
+    ],
+    credentials: true,
+}))
+// app.use(cors())
+app.use(cookieParser())
+
+const verify = (req, res, next) => {
+    const AccessToken = req?.cookies?.AccessToken
+    if (!AccessToken) {
+        return res.status(401).send({ message: "Unauthorized user" })
+    }
+    jwt.verify(AccessToken, process.env.TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(401).send({ message: "Unauthorized user" })
+        }
+        req.tokenUserEmail = decoded.email
+        next()
+    });
+}
 
 
-
-
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASS}@cluster12.tzkl8fh.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
@@ -23,17 +45,40 @@ const client = new MongoClient(uri, {
     }
 });
 
+const userCollection = client.db('BDC').collection('Users')
+const requestCollection = client.db('BDC').collection('DonationRequests')
+const blogCollection = client.db('BDC').collection('Blogs')
+
+
+const verifyAdmin = async (req, res, next) => {
+    const email = req?.tokenUserEmail
+    const filter = { email: email }
+    const result = await userCollection.findOne(filter)
+    if (result.role !== 'admin') {
+        return res.status(403).send({ message: 'Forbidden access' })
+    }
+    next()
+}
 
 async function run() {
     try {
-        const userCollection = client.db('BDC').collection('Users')
-        const requestCollection = client.db('BDC').collection('DonationRequests')
-        const blogCollection = client.db('BDC').collection('Blogs')
+
         // client.connect();
+
+        app.get('/api/v1/jwt', async (req, res) => {
+            const token = jwt.sign(req.query, process.env.TOKEN_SECRET, { expiresIn: '10h' });
+            const options = {
+                sameSite: 'none',
+                httpOnly: true,
+                secure: true
+            }
+            res.cookie('AccessToken', token, options).send({ success: true })
+        })
+
 
         // user related APIs:
         // get user
-        app.get('/api/v1/user', async (req, res) => {
+        app.get('/api/v1/user', verify, async (req, res) => {
             const email = req?.query?.email
             const filter = { email: email }
             const user = await userCollection.findOne(filter)
@@ -41,10 +86,10 @@ async function run() {
         })
 
         // get all users
-        app.get('/api/v1/all-users', async (req, res) => {
-            const result = await userCollection.find().toArray()
-            res.send(result)
-        })
+        // app.get('/api/v1/all-users', verify, async (req, res) => {
+        //     const result = await userCollection.find().toArray()
+        //     res.send(result)
+        // })
 
         // add user to DB
         app.post('/api/v1/add-user', async (req, res) => {
@@ -54,7 +99,7 @@ async function run() {
             res.send(result)
         })
 
-        app.post('/api/v1/update-user', async (req, res) => {
+        app.post('/api/v1/update-user', verify, async (req, res) => {
             const updateUser = req.body
             const filter = { email: req?.query?.email }
             // console.log(updateUser);
@@ -66,7 +111,7 @@ async function run() {
         })
 
         //update Role of user
-        app.get('/api/v1/update-user/:id', async (req, res) => {
+        app.get('/api/v1/update-user/:id', verify, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const roleField = {
@@ -77,7 +122,7 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/api/v1/paginated-all-users', async (req, res) => {
+        app.get('/api/v1/paginated-all-users', verify, async (req, res) => {
             const data = req.query
             const { size, currentPage } = data
             const result = await userCollection.find()
@@ -97,7 +142,6 @@ async function run() {
                     { blood: { $regex: new RegExp(blood, 'i') } },
                 ]
             }
-            console.log(filter);
             const result = await userCollection.find(filter).toArray()
             res.send(result)
         })
@@ -107,7 +151,7 @@ async function run() {
         //Donation request related apis:
 
         // Get all requests: or user specific
-        app.get('/api/v1/my-donation-request', async (req, res) => {
+        app.get('/api/v1/my-donation-request', verify, async (req, res) => {
             let filter = {}
             if (req?.query?.email) {
                 filter = { email: req.query.email }
@@ -134,7 +178,7 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/api/v1/request/:id', async (req, res) => {
+        app.get('/api/v1/request/:id', verify, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const result = await requestCollection.findOne(filter)
@@ -142,7 +186,7 @@ async function run() {
         })
 
         //Request a donation
-        app.post('/api/v1/create-donation-request', async (req, res) => {
+        app.post('/api/v1/create-donation-request', verify, async (req, res) => {
             let data = req.body
             const time = new Date().getTime()
             data.postTime = time
@@ -150,7 +194,7 @@ async function run() {
             res.send(result)
         })
 
-        app.put('/api/v1/request-update/:id', async (req, res) => {
+        app.put('/api/v1/request-update/:id', verify, async (req, res) => {
             const id = req.params.id
             const data = req.body
             const filter = { _id: new ObjectId(id) }
@@ -163,7 +207,7 @@ async function run() {
 
 
         // Delete a request
-        app.delete('/api/v1/delete-donation-request/:id', async (req, res) => {
+        app.delete('/api/v1/delete-donation-request/:id', verify, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const result = await requestCollection.deleteOne(filter)
@@ -171,7 +215,7 @@ async function run() {
         })
 
         // Update req status done or cancel:
-        app.put('/api/v1/status-update/:id', async (req, res) => {
+        app.put('/api/v1/status-update/:id', verify, async (req, res) => {
             const id = req.params.id
             const field = req.body
             if (field.requestStatus === 'in progress' && Object.keys(field).length === 1) {
@@ -187,7 +231,7 @@ async function run() {
         })
 
         // Get Document Counts 
-        app.get('/api/v1/all-stats', async (req, res) => {
+        app.get('/api/v1/all-stats', verify, async (req, res) => {
             const totalUser = await userCollection.estimatedDocumentCount()
             const totalRequest = await requestCollection.estimatedDocumentCount()
             const result = {
@@ -208,7 +252,7 @@ async function run() {
         // // // /// // // Blogs related APIS:
 
         // add a new blog
-        app.post('/api/v1/add-blog', async (req, res) => {
+        app.post('/api/v1/add-blog', verify, async (req, res) => {
             let blog = req.body
             blog.blogStatus = 'pending'
             console.log('The blog', blog);
@@ -223,7 +267,7 @@ async function run() {
         })
 
         // ID of blog
-        app.get('/api/v1/a-blog/:id', async (req, res) => {
+        app.get('/api/v1/a-blog/:id', verify, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const result = await blogCollection.findOne(filter)
@@ -231,7 +275,7 @@ async function run() {
         })
 
         // update a blog:
-        app.put('/api/v1/update-blog/:id', async (req, res) => {
+        app.put('/api/v1/update-blog/:id', verify, async (req, res) => {
             const id = req.params.id
             const data = req.body
             const filter = { _id: new ObjectId(id) }
@@ -250,7 +294,7 @@ async function run() {
         })
 
         // Publish/unpublish a blog:
-        app.patch('/api/v1/publish-blog/:id', async (req, res) => {
+        app.patch('/api/v1/publish-blog/:id', verify, verifyAdmin, async (req, res) => {
             const id = req.params.id
             const field = req.query
             const filter = { _id: new ObjectId(id) }
@@ -273,7 +317,7 @@ async function run() {
         })
 
         // Delete blog:
-        app.delete('/api/v1/delete-blog/:id', async (req, res) => {
+        app.delete('/api/v1/delete-blog/:id', verify, verifyAdmin, async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
             const result = await blogCollection.deleteOne(filter)
