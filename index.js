@@ -151,14 +151,24 @@ async function run() {
         //Donation request related apis:
 
         // Get all requests: or user specific
-        app.get('/api/v1/my-donation-request', verify, async (req, res) => {
-            let filter = {}
-            if (req?.query?.email) {
-                filter = { email: req.query.email }
-            }
-            const result = await requestCollection.find(filter).sort({ postTime: -1 }).toArray()
+        app.post('/api/v1/my-donation-request', verify, async (req, res) => {
+            let filter = { email: req.query.email }
+            const result = await requestCollection.find(filter)
+                .sort({ postTime: -1 })
+                .skip(req.body.itemPerPage * req.body.currentPage)
+                .limit(req.body.itemPerPage * 1)
+                .toArray()
             res.send(result)
         })
+
+        // Documents count for Specific user:
+        app.get('/api/v1/my-don-req-count', verify, async (req, res) => {
+            const filter = req?.query
+            const result = await requestCollection.countDocuments(filter)
+            res.send({ count: result })
+        })
+
+
 
         // PAGINATED all request:
         app.get('/api/v1/paginated-all-req', async (req, res) => {
